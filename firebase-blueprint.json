@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A vintage clothing item in the catalog",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Display name of the product" },
+        "category": { "type": "string", "enum": ["tops", "bottoms", "outerwear", "accessories", "knitwear"], "description": "The category the item belongs to" },
+        "era": { "type": "string", "description": "The fashion era, e.g. '1970s'" },
+        "price": { "type": "number", "description": "Price in USD" },
+        "image": { "type": "string", "description": "URL to the product image" },
+        "description": { "type": "string", "description": "Detailed description of the item" },
+        "status": { "type": "string", "enum": ["in_stock", "sold", "draft"], "description": "Inventory status" },
+        "sku": { "type": "string", "description": "Stock Keeping Unit unique identifier" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation" }
+      },
+      "required": ["name", "category", "era", "price", "image", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "System user with role-based permissions",
+      "type": "object",
+      "properties": {
+        "full_name": { "type": "string", "description": "User's full name" },
+        "email": { "type": "string", "description": "User's primary email" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "Access level" },
+        "status": { "type": "string", "enum": ["active", "deactivated"], "description": "Account status" },
+        "bio": { "type": "string", "description": "User biography" },
+        "location": { "type": "string", "description": "User location" },
+        "points": { "type": "number", "description": "Loyalty points" },
+        "tier": { "type": "string", "enum": ["Bronze", "Silver", "Gold", "Archive Master"], "description": "Membership tier" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Registration date" },
+        "photoURL": { "type": "string", "description": "Avatar URL" }
+      },
+      "required": ["full_name", "email", "role", "status"]
+    },
+    "Address": {
+      "title": "Address",
+      "description": "User shipping address",
+      "type": "object",
+      "properties": {
+        "full_name": { "type": "string" },
+        "address_line": { "type": "string" },
+        "city": { "type": "string" },
+        "postal_code": { "type": "string" },
+        "country": { "type": "string" },
+        "isDefault": { "type": "boolean" }
+      },
+      "required": ["full_name", "address_line", "city", "postal_code", "country"]
+    },
+    "PaymentMethod": {
+      "title": "Payment Method",
+      "description": "Redacted payment method info",
+      "type": "object",
+      "properties": {
+        "card_type": { "type": "string" },
+        "last4": { "type": "string" },
+        "expiry": { "type": "string" },
+        "isDefault": { "type": "boolean" }
+      },
+      "required": ["card_type", "last4"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer order",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The user who placed the order" },
+        "items": { "type": "array", "description": "List of ordered items" },
+        "total": { "type": "number", "description": "Total price" },
+        "status": { "type": "string", "description": "Order status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of order" }
+      },
+      "required": ["userId", "items", "total", "status"]
+    }
+  },
+  "firestore": {
+    "products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of all vintage clothing products"
+    },
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Registered user profiles and permissions"
+    },
+    "users/{userId}/addresses/{addressId}": {
+      "schema": "Address",
+      "description": "User saved shipping addresses"
+    },
+    "users/{userId}/payments/{paymentId}": {
+      "schema": "PaymentMethod",
+      "description": "User saved payment methods"
+    },
+    "orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer purchase history"
+    }
+  }
+}

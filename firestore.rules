@@ -1,0 +1,136 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'victorchunga149426@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin')
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidProduct(data) {
+      return data.name is string && data.name.size() <= 200 &&
+             data.category in ['tops', 'bottoms', 'outerwear', 'accessories', 'knitwear'] &&
+             data.era is string && data.era.size() <= 50 &&
+             data.price is number && data.price >= 0 &&
+             data.image is string && data.image.size() <= 1000 &&
+             data.status in ['in_stock', 'sold', 'draft'] &&
+             (data.get('createdAt', null) == null || data.createdAt is timestamp);
+    }
+
+    function isValidUser(data) {
+      return data.full_name is string && data.full_name.size() <= 100 &&
+             data.email is string && data.email.size() <= 100 &&
+             data.role in ['user', 'admin'] &&
+             data.status in ['active', 'deactivated'] &&
+             (data.get('photoURL', null) == null || data.photoURL is string) &&
+             (data.get('bio', null) == null || (data.bio is string && data.bio.size() <= 500)) &&
+             (data.get('location', null) == null || (data.location is string && data.location.size() <= 100)) &&
+             (data.get('points', null) == null || data.points is number) &&
+             (data.get('tier', null) == null || data.tier in ['Bronze', 'Silver', 'Gold', 'Archive Master']) &&
+             (data.get('createdAt', null) == null || data.createdAt is timestamp) &&
+             (data.get('updatedAt', null) == null || data.updatedAt is timestamp);
+    }
+
+    function isValidAddress(data) {
+      return data.full_name is string &&
+             data.address_line is string &&
+             data.city is string &&
+             data.postal_code is string &&
+             data.country is string &&
+             (data.get('isDefault', null) == null || data.isDefault is bool);
+    }
+
+    function isValidPayment(data) {
+      return data.card_type is string &&
+             data.last4 is string &&
+             (data.get('expiry', null) == null || data.expiry is string) &&
+             (data.get('isDefault', null) == null || data.isDefault is bool);
+    }
+
+    function isValidOrder(data) {
+      return data.userId is string &&
+             data.items is list &&
+             data.total is number &&
+             data.status is string &&
+             data.createdAt is timestamp &&
+             (data.get('subtotal', null) == null || data.subtotal is number) &&
+             (data.get('tax', null) == null || data.tax is number);
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      
+      // Public signup allows creating a 'user' role only
+      allow create: if isSignedIn() && 
+                      isOwner(userId) && 
+                      isValidUser(request.resource.data) &&
+                      request.resource.data.role == 'user' &&
+                      request.resource.data.status == 'active';
+      
+      // Admins can create other admins
+      allow create: if isAdmin() && isValidUser(request.resource.data);
+
+      allow update: if isAdmin() || (
+        isOwner(userId) && 
+        isValidUser(request.resource.data) &&
+        request.resource.data.role == resource.data.role && // Cannot change own role
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['full_name', 'photoURL', 'status', 'bio', 'location', 'updatedAt', 'points', 'tier'])
+      );
+
+      allow delete: if isAdmin();
+
+      // Subcollections
+      match /addresses/{addressId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update: if isOwner(userId) && isValidAddress(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /payments/{paymentId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update: if isOwner(userId) && isValidPayment(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // Orders collection
+    match /orders/{orderId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid && isValidOrder(request.resource.data);
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
+    // Products collection
+    match /products/{productId} {
+      allow get, list: if true;
+      
+      allow create: if isAdmin() && isValidProduct(request.resource.data);
+      allow update: if isAdmin() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}
